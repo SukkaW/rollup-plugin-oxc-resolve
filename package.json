@@ -1,0 +1,43 @@
+{
+  "name": "rollup-plugin-node-resolve-oxc",
+  "version": "0.0.0",
+  "description": "Locate and bundle third-party dependencies in node_modules for Rollup, but with a Rust core",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint --format=sukka .",
+    "test": "SWC_NODE_IGNORE_DYNAMIC=1 SWC_NODE_PROJECT=tsconfig.test-swc.json nyc mocha --require @swc-node/register --full-trace ./src/**/*.test.ts",
+    "build": "bunchee --no-sourcemap",
+    "prerelease": "pnpm run lint && pnpm run test && pnpm run build",
+    "release": "bumpp -r --all --commit \"release: %s\" --tag \"%s\""
+  },
+  "keywords": [
+    "rollup",
+    "plugin",
+    "npm",
+    "modules",
+    "oxc"
+  ],
+  "author": "SukkaW <https://skk.moe>",
+  "license": "MIT",
+  "dependencies": {
+    "@rollup/pluginutils": "^5.0.1",
+    "deepmerge": "^4.2.2",
+    "is-module": "^1.0.0"
+  },
+  "devDependencies": {
+    "bunchee": "^6.5.2",
+    "eslint": "^9.27.0",
+    "eslint-config-sukka": "^6.21.0",
+    "eslint-formatter-sukka": "^6.21.0",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "rollup": "^2.78.0||^3.0.0||^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "rollup": {
+      "optional": true
+    }
+  },
+  "packageManager": "pnpm@10.11.0"
+}
