@@ -1,4 +1,5 @@
-import { dirname, resolve } from 'path';
+import { dirname, resolve } from 'node:path';
+import process from 'node:process';
 
 import type {
   Plugin as RollupPlugin,
@@ -7,26 +8,40 @@ import type {
   CustomPluginOptions as RollupCustomPluginOptions
 } from 'rollup';
 
-import { builtinModules as nodeBuiltinModules } from 'module';
+import { builtinModules as nodeBuiltinModules } from 'node:module';
 import { version } from '../package.json';
 
 import { ResolverFactory } from 'oxc-resolver';
 import type { NapiResolveOptions, ResolveResult } from 'oxc-resolver';
+import type { PathLike } from 'node:fs';
 
 const ES6_BROWSER_EMPTY = '\0node-resolve:empty.js';
 const NODE_IMPORT_PREFIX = /^node:/;
 
-export interface OxcResolveOptions extends Exclude<NapiResolveOptions, 'preserveSymlinks'> {
+/**
+ * The `symlinks` option are ignored and the plugin will respect rollup's option
+ */
+export interface OxcResolveOptions extends Exclude<NapiResolveOptions, 'symlinks'> {
+  rootDir?: string,
   preferBuiltins?: boolean | ((id: string) => boolean),
   resolveOnly?: Array<string | RegExp> | ((id: string) => boolean)
 }
 
 export const defaultOptions: OxcResolveOptions = {
-  extensions: ['.mjs', '.cjs', '.js', '.json', '.node'],
+  // It's important that .mjs is listed before .js so that Rollup will interpret npm modules
+  // which deploy both ESM .mjs and CommonJS .js files as ESM.
+  extensions: ['.mjs', '.cjs', '.js', '.json', '.node', '.wasm'],
+  // Prefer ESM in Dual ESM/CJS packages.
   conditionNames: ['default', 'module', 'import', 'require'],
   mainFields: ['browser', 'module', 'main'],
   exportsFields: ['exports'],
-  mainFiles: ['index']
+  mainFiles: ['index'],
+  extensionAlias: {
+    '.js': ['.tsx', '.ts', '.js'],
+    '.jsx': ['.tsx', '.jsx'],
+    '.mjs': ['.mts', '.mjs'],
+    '.cjs': ['.cts', '.cjs']
+  }
 };
 
 export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
@@ -36,10 +51,10 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
   };
 
   const {
-    extensions = [],
     mainFields = [],
     builtinModules: useBuiltinModules,
-    conditionNames = []
+    conditionNames = [],
+    rootDir = process.cwd()
   } = options;
 
   if (!conditionNames.includes('development') && !conditionNames.includes('production')) {
@@ -54,23 +69,22 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
 
   let resolverFactory: ResolverFactory;
 
-  const resolveOnly
-    = typeof options.resolveOnly === 'function'
+  const resolveOnly =
+    typeof options.resolveOnly === 'function'
       ? options.resolveOnly
       : allowPatterns(options.resolveOnly);
 
   const resolveLikeNode = async (
     context: RollupPluginContext,
     importee: string,
-    importer: string | undefined,
-    custom?: RollupCustomPluginOptions | null
+    importer: string | undefined
   ) => {
     // strip query params from import
     const [importPath, params] = importee.split('?');
     const importSuffix = params ? `?${params}` : '';
     importee = importPath;
 
-    const baseDir = importer ? dirname(importer) : process.cwd();
+    const baseDir = importer ? dirname(importer) : rootDir;
 
     const parts = importee.split(/[/\\]/);
     let id = parts.shift()!;
@@ -104,29 +118,11 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
       importSpecifierList.push(`./${importee}`);
     }
 
-    // TypeScript files may import '.mjs' or '.cjs' to refer to either '.mts' or '.cts'.
-    // They may also import .js to refer to either .ts or .tsx, and .jsx to refer to .tsx.
-    if (importer && /\.(?:ts|[cm]ts|tsx)$/.test(importer)) {
-      for (const [importeeExt, resolvedExt] of [
-        ['.js', '.ts'],
-        ['.js', '.tsx'],
-        ['.jsx', '.tsx'],
-        ['.mjs', '.mts'],
-        ['.cjs', '.cts']
-      ]) {
-        if (importee.endsWith(importeeExt) && extensions.includes(resolvedExt)) {
-          importSpecifierList.push(importee.slice(0, -importeeExt.length) + resolvedExt);
-        }
-      }
-    }
-
-    const isRequire = custom?.['node-resolve']?.isRequire;
-    const exportConditions = isRequire ? conditionNames : conditionNames;
-    if (useBrowserOverrides && !exportConditions.includes('browser')) { exportConditions.push('browser'); }
+    if (useBrowserOverrides && !conditionNames.includes('browser')) { conditionNames.push('browser'); }
 
     const importeeIsBuiltin = useBuiltinModules && nodeBuiltinModules.includes(importee.replace(NODE_IMPORT_PREFIX, ''));
-    const preferImporteeIsBuiltin
-      = typeof preferBuiltins === 'function' ? preferBuiltins(importee) : preferBuiltins;
+    const preferImporteeIsBuiltin =
+      typeof preferBuiltins === 'function' ? preferBuiltins(importee) : preferBuiltins;
 
     if (importeeIsBuiltin && preferImporteeIsBuiltin) {
       return null;
@@ -137,7 +133,7 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
     for (const importSpecifer of importSpecifierList) {
       // eslint-disable-next-line no-await-in-loop -- run in sequence
       resolved = await resolverFactory.async(
-        importer ?? process.cwd(),
+        importer ?? baseDir,
         importSpecifer
       );
 
@@ -146,20 +142,20 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
       }
     }
 
-    if (resolved?.error) {
-      context.warn(resolved.error);
-    }
-
     if (!resolved) {
       return null;
+    }
+
+    if (resolved.error) {
+      context.warn(resolved.error);
     }
 
     if (importeeIsBuiltin && preferImporteeIsBuiltin) {
       if (!isPreferBuiltinsSet && resolved.path !== importee) {
         context.warn({
           message:
-              `preferring built-in module '${importee}' over local alternative at '${resolved.path}', pass 'preferBuiltins: false' to disable this behavior or 'preferBuiltins: true' to disable this warning.`
-              + 'or passing a function to \'preferBuiltins\' to provide more fine-grained control over which built-in modules to prefer.',
+            `preferring built-in module '${importee}' over local alternative at '${resolved.path}', pass 'preferBuiltins: false' to disable this behavior or 'preferBuiltins: true' to disable this warning.`
+            + 'or passing a function to \'preferBuiltins\' to provide more fine-grained control over which built-in modules to prefer.',
           pluginCode: 'PREFER_BUILTINS'
         });
       }
@@ -212,7 +208,7 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
           importer = undefined;
         }
 
-        const resolved = await resolveLikeNode(this, importee, importer, custom);
+        const resolved = await resolveLikeNode(this, importee, importer);
         if (resolved) {
           // This way, plugins may attach additional meta information to the
           // resolved id or make it external. We do not skip node-resolve here

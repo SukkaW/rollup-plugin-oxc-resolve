@@ -3,6 +3,23 @@
   "version": "0.0.1",
   "description": "Locate and bundle third-party dependencies in node_modules for Rollup, but with a Rust core",
   "main": "./dist/cjs/index.js",
+  "module": "./dist/es/index.mjs",
+  "types": "./dist/cjs/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/es/index.d.mts",
+        "default": "./dist/es/index.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
   "scripts": {
     "lint": "eslint --format=sukka .",
     "test": "SWC_NODE_IGNORE_DYNAMIC=1 SWC_NODE_PROJECT=tsconfig.test-swc.json nyc mocha --require @swc-node/register --full-trace ./src/**/*.test.ts",
@@ -26,6 +43,7 @@
     "oxc-resolver": "^11.6.1"
   },
   "devDependencies": {
+    "@eslint-sukka/node": "^6.23.1",
     "@types/node": "^22.17.2",
     "bunchee": "^6.6.0",
     "eslint": "^9.33.0",
@@ -42,22 +60,5 @@
       "optional": true
     }
   },
-  "packageManager": "pnpm@10.14.0",
-  "files": [
-    "dist"
-  ],
-  "module": "./dist/es/index.mjs",
-  "types": "./dist/cjs/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/es/index.d.mts",
-        "default": "./dist/es/index.mjs"
-      },
-      "require": {
-        "types": "./dist/cjs/index.d.ts",
-        "default": "./dist/cjs/index.js"
-      }
-    }
-  }
+  "packageManager": "pnpm@10.14.0"
 }
