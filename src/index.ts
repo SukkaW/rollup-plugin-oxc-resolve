@@ -19,13 +19,13 @@ const NODE_IMPORT_PREFIX = /^node:/;
 /**
  * The `symlinks` option are ignored and the plugin will respect rollup's option
  */
-export interface OxcResolveOptions extends Exclude<NapiResolveOptions, 'symlinks'> {
+export interface RollupOxcResolveOptions extends Exclude<NapiResolveOptions, 'symlinks'> {
   rootDir?: string,
   preferBuiltins?: boolean | ((id: string) => boolean),
   resolveOnly?: Array<string | RegExp> | ((id: string) => boolean)
 }
 
-export const defaultOptions: OxcResolveOptions = {
+export const defaultOptions: RollupOxcResolveOptions = {
   // It's important that .mjs is listed before .js so that Rollup will interpret npm modules
   // which deploy both ESM .mjs and CommonJS .js files as ESM.
   extensions: ['.mjs', '.cjs', '.js', '.json', '.node', '.wasm'],
@@ -42,7 +42,7 @@ export const defaultOptions: OxcResolveOptions = {
   }
 };
 
-export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
+export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin {
   options = {
     ...defaultOptions,
     ...options
@@ -274,4 +274,6 @@ function normalizeInput(input: RollupNormalizedInputOptions['input']) {
   return [input];
 }
 
-export default oxcResolve;
+export function defineRollupOxcResolveOptions(options: RollupOxcResolveOptions): RollupOxcResolveOptions {
+  return options;
+}
