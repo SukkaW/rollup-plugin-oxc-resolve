@@ -25,8 +25,7 @@
   },
   "scripts": {
     "lint": "eslint --format=sukka .",
-    "test": "ava",
-    "test-todo": "SWC_NODE_IGNORE_DYNAMIC=1 SWC_NODE_PROJECT=tsconfig.test-swc.json nyc mocha --require @swc-node/register --full-trace ./src/**/*.test.ts",
+    "test": "SWC_NODE_IGNORE_DYNAMIC=1 SWC_NODE_PROJECT=tsconfig.test-swc.json nyc mocha --require @swc-node/register --full-trace ./test/**/*.{js,ts}",
     "build": "bunchee --no-sourcemap",
     "prerelease": "pnpm run lint && pnpm run build",
     "release": "bumpp -r --all --commit \"release: %s\" --tag \"%s\""
@@ -42,19 +41,22 @@
   "license": "MIT",
   "dependencies": {
     "@rollup/pluginutils": "^5.3.0",
-    "ava": "4.3.3",
     "deepmerge": "^4.3.1",
+    "foxts": "^4.1.0",
     "oxc-resolver": "^11.9.0"
   },
   "devDependencies": {
     "@eslint-sukka/node": "^7.2.1",
     "@rollup/plugin-commonjs": "^28.0.6",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.18.8",
     "bumpp": "^10.2.3",
     "bunchee": "^6.6.0",
     "eslint": "^9.37.0",
     "eslint-config-sukka": "^7.2.1",
     "eslint-formatter-sukka": "^7.2.1",
+    "expect": "^30.2.0",
+    "mocha": "^11.7.4",
     "rollup": "^4.52.4",
     "rollup-plugin-swc3": "^0.12.1",
     "typescript": "^5.9.3"
@@ -66,16 +68,6 @@
     "rollup": {
       "optional": true
     }
-  },
-  "ava": {
-    "workerThreads": false,
-    "files": [
-      "!**/fixtures/**",
-      "!**/helpers/**",
-      "!**/recipes/**",
-      "!**/types.ts",
-      "!**/test-utils.js"
-    ]
   },
   "packageManager": "pnpm@10.18.0"
 }

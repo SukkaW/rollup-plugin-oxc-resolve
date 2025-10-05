@@ -1,11 +1,16 @@
-const path = require('path');
-const process = require('process');
+import path from 'path';
+import process from 'process';
+import type { OutputOptions } from 'rollup';
+import type { RollupBuild } from 'rollup';
 
-/**
- * @param {import('rollup').RollupBuild} bundle
- * @param {import('rollup').OutputOptions} [outputOptions]
- */
-async function getCode(bundle, outputOptions, allFiles = false) {
+interface OutputFile {
+  code?: string,
+  fileName: string,
+  source?: string,
+  map?: string
+}
+
+export async function getCode(bundle: RollupBuild, outputOptions?: OutputOptions, allFiles = false): Promise<string | OutputFile[]> {
   const { output } = await bundle.generate(outputOptions || { format: 'cjs', exports: 'auto' });
 
   if (allFiles) {
@@ -20,26 +25,22 @@ async function getCode(bundle, outputOptions, allFiles = false) {
   return code;
 }
 
-/**
- * @param {import('rollup').RollupBuild} bundle
- * @param {import('rollup').OutputOptions} [outputOptions]
- */
-async function getFiles(bundle, outputOptions) {
+export async function getFiles(bundle: RollupBuild, outputOptions: OutputOptions): Promise<Array<{ fileName: string, content: string }>> {
   if (!outputOptions.dir && !outputOptions.file) { throw new Error('You must specify "output.file" or "output.dir" for the build.'); }
 
-  const { output } = await bundle.generate(outputOptions || { format: 'cjs', exports: 'auto' });
+  const { output } = await bundle.generate({ format: 'cjs', exports: 'auto', ...outputOptions });
 
   return output.map(({ code, fileName, source }) => {
-    const absPath = path.resolve(outputOptions.dir || path.dirname(outputOptions.file), fileName);
+    const absPath = path.resolve(outputOptions.dir || path.dirname(outputOptions.file!), fileName);
     return {
       fileName: path.relative(process.cwd(), absPath).split(path.sep).join('/'),
-      content: code || source
+      content: code || source!
     };
   });
 }
 
-async function getImports(bundle) {
-  if (bundle.imports) {
+export async function getImports(bundle: RollupBuild): Promise<string[]> {
+  if ('imports' in bundle) {
     return bundle.imports;
   }
   const { output } = await bundle.generate({ format: 'es' });
@@ -47,22 +48,17 @@ async function getImports(bundle) {
   return imports;
 }
 
-async function getResolvedModules(bundle) {
+export async function getResolvedModules(bundle: RollupBuild): Promise<Record<string, any>> {
   const {
     output: [{ modules }]
   } = await bundle.generate({ format: 'es' });
   return modules;
 }
 
-// eslint-disable-next-line no-console
-const onwarn = (warning) => console.warn(warning.toString());
+// eslint-disable-next-line no-console -- test
+export const onwarn = (warning: any) => console.warn(warning.toString());
 
-/**
- * @param {import('ava').Assertions} t
- * @param {import('rollup').RollupBuild} bundle
- * @param {object} args
- */
-async function testBundle(t, bundle, { inject = {}, options = {} } = {}) {
+export async function testBundle(t: any, bundle: RollupBuild, { inject = {}, options = {} } = {}): Promise<{ code: string, error?: any, module: { exports: any }, result?: any }> {
   const { output } = await bundle.generate({ format: 'cjs', exports: 'auto', ...options });
   const [{ code }] = output;
   const module = { exports: {} };
@@ -72,7 +68,7 @@ async function testBundle(t, bundle, { inject = {}, options = {} } = {}) {
     `process.chdir('${cwd}'); let result;\n\n${code}\n\nreturn result;`
   );
 
-  // eslint-disable-next-line no-new-func
+  // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval -- test
   const func = new Function(...params);
   let error;
   let result;
@@ -86,17 +82,7 @@ async function testBundle(t, bundle, { inject = {}, options = {} } = {}) {
   return { code, error, module, result };
 }
 
-async function evaluateBundle(bundle) {
+export async function evaluateBundle(bundle: RollupBuild): Promise<any> {
   const { module } = await testBundle(null, bundle);
   return module.exports;
 }
-
-module.exports = {
-  evaluateBundle,
-  getCode,
-  getFiles,
-  getImports,
-  getResolvedModules,
-  onwarn,
-  testBundle
-};
