@@ -155,7 +155,7 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
 
     if (resolved.error) {
       // Usually, previous built-in handling should already cover builtin modules
-      // But in case oxc-resolver did throw this, lat's handle it as well
+      // But in case oxc-resolver did throw this, let's handle it as well
       if (resolved.error.startsWith('Builtin module')) {
         return {
           id,
