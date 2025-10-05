@@ -4,7 +4,8 @@ import process from 'node:process';
 import type {
   Plugin as RollupPlugin,
   PluginContext as RollupPluginContext,
-  NormalizedInputOptions as RollupNormalizedInputOptions
+  NormalizedInputOptions as RollupNormalizedInputOptions,
+  PartialResolvedId
 } from 'rollup';
 
 import { builtinModules as nodeBuiltinModules } from 'node:module';
@@ -50,7 +51,7 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
 
   const {
     mainFields = [],
-    builtinModules: useBuiltinModules,
+    builtinModules: useBuiltinModules = true,
     conditionNames = [],
     rootDir = process.cwd()
   } = options;
@@ -80,7 +81,7 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
     context: RollupPluginContext,
     importee: string,
     importer: string | undefined
-  ) => {
+  ): Promise<PartialResolvedId | null | false> => {
     // strip query params from import
     const [importPath, params] = importee.split('?');
     const importSuffix = params ? `?${params}` : '';
@@ -125,7 +126,11 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
       typeof preferBuiltins === 'function' ? preferBuiltins(importee) : preferBuiltins;
 
     if (importeeIsBuiltin && preferImporteeIsBuiltin) {
-      return null;
+      return {
+        id,
+        external: true,
+        moduleSideEffects: false
+      };
     }
 
     let resolved: ResolveResult | null = null;
@@ -149,6 +154,16 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
     }
 
     if (resolved.error) {
+      // Usually, previous built-in handling should already cover builtin modules
+      // But in case oxc-resolver did throw this, let's handle it as well
+      if (resolved.error.startsWith('Builtin module')) {
+        return {
+          id,
+          external: true,
+          moduleSideEffects: false
+        };
+      }
+
       context.warn(resolved.error);
     }
 
@@ -180,6 +195,7 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
       // Remove builtinModules from options as ResolverFactory expects a boolean for builtinModules
       resolverFactory = new ResolverFactory({
         ...options,
+        builtinModules: useBuiltinModules,
         conditionNames,
         symlinks: buildOptions.preserveSymlinks
       });
