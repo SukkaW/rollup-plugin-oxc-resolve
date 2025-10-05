@@ -22,6 +22,8 @@ const NODE_IMPORT_PREFIX = /^node:/;
  */
 export interface RollupOxcResolveOptions extends Exclude<NapiResolveOptions, 'symlinks'> {
   rootDir?: string,
+  /** @deprecated -- Use `conditionNames` instead, this is only for backward compatibility with @rollup/plugin-node-resolve */
+  exportConditions?: string[],
   preferBuiltins?: boolean | ((id: string) => boolean),
   resolveOnly?: Array<string | RegExp> | ((id: string) => boolean)
 }
@@ -52,7 +54,9 @@ export function oxcResolve(options: RollupOxcResolveOptions = {}): RollupPlugin 
   const {
     mainFields = [],
     builtinModules: useBuiltinModules = true,
-    conditionNames = [],
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- implementation
+    exportConditions,
+    conditionNames = exportConditions ?? [],
     rootDir = process.cwd()
   } = options;
 
