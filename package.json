@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-oxc-resolve",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Locate and bundle third-party dependencies in node_modules for Rollup, but with a Rust core",
   "repository": {
     "url": "https://github.com/SukkaW/rollup-plugin-oxc-resolve"
