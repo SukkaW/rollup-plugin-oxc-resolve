@@ -1,0 +1,254 @@
+const { join } = require('path');
+
+const test = require('ava');
+const { rollup } = require('rollup');
+const commonjs = require('@rollup/plugin-commonjs');
+
+const { testBundle } = require('./test-utils.js');
+
+const { oxcResolve } = require('../dist/cjs');
+
+process.chdir(join(__dirname, 'fixtures'));
+
+test('disregards top-level browser field', async (t) => {
+  const bundle = await rollup({
+    input: 'browser.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [oxcResolve()]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'node');
+});
+
+test('allows use of the top-level browser field', async (t) => {
+  const bundle = await rollup({
+    input: 'browser.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'browser');
+});
+
+test('disregards object browser field', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [oxcResolve()]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'node');
+  t.is(module.exports.dep, 'node-dep');
+  t.is(module.exports.test, 42);
+});
+
+test('allows use of the object browser field', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'browser');
+  t.is(module.exports.dep, 'browser-dep');
+  t.is(module.exports.test, 43);
+});
+
+test('allows use of object browser field, resolving `main`', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-main.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'browser');
+  t.is(module.exports.dep, 'browser-dep');
+  t.is(module.exports.test, 43);
+});
+
+test('options.browser = true still works', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-main.js',
+    plugins: [
+      oxcResolve({
+        browser: true
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'browser');
+  t.is(module.exports.dep, 'browser-dep');
+  t.is(module.exports.test, 43);
+});
+
+test('allows use of object browser field, resolving implicit `main`', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-implicit.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'browser');
+});
+
+test('allows use of object browser field, resolving replaced builtins', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-builtin.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'browser-fs');
+});
+
+test('allows use of object browser field, resolving nested directories', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-nested.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports.env, 'browser');
+  t.is(module.exports.dep, 'browser-dep');
+  t.is(module.exports.test, 43);
+});
+
+test('respects local browser field for external dependencies', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-local.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'component-type');
+});
+
+test('respects local browser field for internal dependencies', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-local-relative.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'component-type');
+});
+
+test('does not apply local browser field for matching imports in nested paths', async (t) => {
+  try {
+    await rollup({
+      input: 'nested/browser-local-relative.js',
+      onwarn: () => t.fail('No warnings were expected'),
+      plugins: [
+        oxcResolve({
+          mainFields: ['browser', 'main']
+        })
+      ]
+    });
+  } catch (e) {
+    t.is(e.code, 'UNRESOLVED_IMPORT');
+    return;
+  }
+  t.fail('expecting error');
+});
+
+test('allows use of object browser field, resolving to nested node_modules', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-entry-points-to-node-module.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        main: true,
+        browser: true
+      })
+    ]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'component-type');
+});
+
+test('supports `false` in browser field', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-false.js',
+    onwarn: () => t.fail('No warnings were expected'),
+    plugins: [
+      oxcResolve({
+        mainFields: ['browser', 'main']
+      })
+    ]
+  });
+  await testBundle(t, bundle);
+});
+
+test('pkg.browser with mapping to prevent bundle by specifying a value of false', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-object-with-false.js',
+    plugins: [oxcResolve({ browser: true }), commonjs()]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'ok');
+});
+
+test('exports.browser can be mapped via pkg.browser', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-exports-browser-browser.js',
+    plugins: [oxcResolve({ browser: true }), commonjs()]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'browser');
+});
+
+test('browser field does not take precedence over export map result', async (t) => {
+  const bundle = await rollup({
+    input: 'browser-exports-browser.js',
+    plugins: [oxcResolve({ browser: true }), commonjs()]
+  });
+  const { module } = await testBundle(t, bundle);
+
+  t.is(module.exports, 'require');
+});
