@@ -37,20 +37,20 @@
   "author": "SukkaW <https://skk.moe>",
   "license": "MIT",
   "dependencies": {
-    "@rollup/pluginutils": "^5.2.0",
+    "@rollup/pluginutils": "^5.3.0",
     "deepmerge": "^4.3.1",
     "is-module": "^1.0.0",
-    "oxc-resolver": "^11.6.1"
+    "oxc-resolver": "^11.9.0"
   },
   "devDependencies": {
-    "@eslint-sukka/node": "^6.23.1",
-    "@types/node": "^22.17.2",
+    "@eslint-sukka/node": "^7.2.1",
+    "@types/node": "^22.18.8",
     "bunchee": "^6.6.0",
-    "eslint": "^9.33.0",
-    "eslint-config-sukka": "^6.23.1",
-    "eslint-formatter-sukka": "^6.23.1",
-    "rollup": "^4.46.2",
-    "typescript": "^5.9.2"
+    "eslint": "^9.37.0",
+    "eslint-config-sukka": "^7.2.1",
+    "eslint-formatter-sukka": "^7.2.1",
+    "rollup": "^4.52.4",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "rollup": "^2.78.0||^3.0.0||^4.0.0"
@@ -60,5 +60,5 @@
       "optional": true
     }
   },
-  "packageManager": "pnpm@10.14.0"
+  "packageManager": "pnpm@10.18.0"
 }
