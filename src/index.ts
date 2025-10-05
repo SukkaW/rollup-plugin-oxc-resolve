@@ -4,8 +4,7 @@ import process from 'node:process';
 import type {
   Plugin as RollupPlugin,
   PluginContext as RollupPluginContext,
-  NormalizedInputOptions as RollupNormalizedInputOptions,
-  CustomPluginOptions as RollupCustomPluginOptions
+  NormalizedInputOptions as RollupNormalizedInputOptions
 } from 'rollup';
 
 import { builtinModules as nodeBuiltinModules } from 'node:module';
@@ -13,7 +12,6 @@ import { version } from '../package.json';
 
 import { ResolverFactory } from 'oxc-resolver';
 import type { NapiResolveOptions, ResolveResult } from 'oxc-resolver';
-import type { PathLike } from 'node:fs';
 
 const ES6_BROWSER_EMPTY = '\0node-resolve:empty.js';
 const NODE_IMPORT_PREFIX = /^node:/;
@@ -37,7 +35,7 @@ export const defaultOptions: OxcResolveOptions = {
   exportsFields: ['exports'],
   mainFiles: ['index'],
   extensionAlias: {
-    '.js': ['.tsx', '.ts', '.js'],
+    '.js': ['.tsx', '.mts', '.ts', '.cts', '.jsx', '.mjs', '.js', '.cjs'],
     '.jsx': ['.tsx', '.jsx'],
     '.mjs': ['.mts', '.mjs'],
     '.cjs': ['.cts', '.cjs']
@@ -64,6 +62,10 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
   const useBrowserOverrides = mainFields.includes('browser');
   const isPreferBuiltinsSet = Object.hasOwn(options, 'preferBuiltins');
   const preferBuiltins = isPreferBuiltinsSet ? options.preferBuiltins : true;
+
+  if (useBrowserOverrides && !conditionNames.includes('browser')) {
+    conditionNames.push('browser');
+  }
 
   let rollupOptions: RollupNormalizedInputOptions;
 
@@ -118,8 +120,6 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
       importSpecifierList.push(`./${importee}`);
     }
 
-    if (useBrowserOverrides && !conditionNames.includes('browser')) { conditionNames.push('browser'); }
-
     const importeeIsBuiltin = useBuiltinModules && nodeBuiltinModules.includes(importee.replace(NODE_IMPORT_PREFIX, ''));
     const preferImporteeIsBuiltin =
       typeof preferBuiltins === 'function' ? preferBuiltins(importee) : preferBuiltins;
@@ -133,9 +133,11 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
     for (const importSpecifer of importSpecifierList) {
       // eslint-disable-next-line no-await-in-loop -- run in sequence
       resolved = await resolverFactory.async(
-        importer ?? baseDir,
+        importer == null ? baseDir : dirname(importer),
         importSpecifer
       );
+
+      context.debug(`resolving '${importSpecifer}' from '${importer ?? '<root>'}', ${JSON.stringify(resolved)}`);
 
       if (!resolved.path) {
         continue;
@@ -178,6 +180,7 @@ export function oxcResolve(options: OxcResolveOptions = {}): RollupPlugin {
       // Remove builtinModules from options as ResolverFactory expects a boolean for builtinModules
       resolverFactory = new ResolverFactory({
         ...options,
+        conditionNames,
         symlinks: buildOptions.preserveSymlinks
       });
     },
