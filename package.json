@@ -45,6 +45,7 @@
   "devDependencies": {
     "@eslint-sukka/node": "^7.2.1",
     "@types/node": "^22.18.8",
+    "bumpp": "^10.2.3",
     "bunchee": "^6.6.0",
     "eslint": "^9.37.0",
     "eslint-config-sukka": "^7.2.1",
